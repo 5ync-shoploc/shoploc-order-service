@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Config locale (ne pas pousser) ###
+**/application-local.yaml
+**/application-local.yml
