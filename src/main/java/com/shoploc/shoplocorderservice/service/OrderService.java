@@ -3,6 +3,7 @@ package com.shoploc.shoplocorderservice.service;
 import com.shoploc.shoplocorderservice.catalog.ProductCatalogClient;
 import com.shoploc.shoplocorderservice.catalog.ProductInfo;
 import com.shoploc.shoplocorderservice.dto.CreateOrderRequest;
+import com.shoploc.shoplocorderservice.dto.MerchantOrderItemResponse;
 import com.shoploc.shoplocorderservice.dto.OrderItemRequest;
 import com.shoploc.shoplocorderservice.dto.OrderResponse;
 import com.shoploc.shoplocorderservice.entity.Order;
@@ -12,6 +13,7 @@ import com.shoploc.shoplocorderservice.exception.InsufficientStockException;
 import com.shoploc.shoplocorderservice.exception.OrderNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductUnavailableException;
+import com.shoploc.shoplocorderservice.repository.OrderItemRepository;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
 import com.shoploc.shoplocorderservice.security.CurrentUser;
 import com.shoploc.shoplocorderservice.security.Role;
@@ -27,10 +29,14 @@ import java.util.Map;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     private final ProductCatalogClient productCatalogClient;
 
-    public OrderService(OrderRepository orderRepository, ProductCatalogClient productCatalogClient) {
+    public OrderService(OrderRepository orderRepository,
+                        OrderItemRepository orderItemRepository,
+                        ProductCatalogClient productCatalogClient) {
         this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
         this.productCatalogClient = productCatalogClient;
     }
 
@@ -92,4 +98,12 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 
+    /** US3 : un commerçant voit les lignes de commande qui concernent ses articles. */
+    @Transactional(readOnly = true)
+    public List<MerchantOrderItemResponse> listMerchantOrderItems(CurrentUser user) {
+        user.requireRole(Role.COMMERCANT);
+        return orderItemRepository.findByMerchantIdOrderByIdDesc(user.id()).stream()
+                .map(MerchantOrderItemResponse::from)
+                .toList();
+    }
 }

@@ -129,4 +129,28 @@ class OrderFlowIntegrationTest {
         mockMvc.perform(get("/api/order/" + other).header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
                 .andExpect(status().isNotFound());
     }
+
+    // ---------- US3 ----------
+
+    @Test
+    void merchant_seesOnlyLinesOfOwnProducts() throws Exception {
+        // une commande qui mélange les articles de merchant-1 (produit 1) et merchant-2 (produit 3)
+        createOrder("client-1", "[{\"productId\": 1, \"quantity\": 2}, {\"productId\": 3, \"quantity\": 1}]");
+
+        mockMvc.perform(get("/api/order/merchant/items")
+                        .header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].productId").value(1))
+                .andExpect(jsonPath("$[0].quantity").value(2));
+
+        mockMvc.perform(get("/api/order/merchant/items")
+                        .header("X-User-Id", "merchant-2").header("X-User-Role", "COMMERCANT"))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].productId").value(3));
+
+        mockMvc.perform(get("/api/order/merchant/items")
+                        .header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isForbidden());
+    }
 }
