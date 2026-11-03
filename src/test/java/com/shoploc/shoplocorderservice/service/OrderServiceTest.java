@@ -9,6 +9,7 @@ import com.shoploc.shoplocorderservice.entity.Order;
 import com.shoploc.shoplocorderservice.entity.OrderStatus;
 import com.shoploc.shoplocorderservice.exception.ForbiddenException;
 import com.shoploc.shoplocorderservice.exception.InsufficientStockException;
+import com.shoploc.shoplocorderservice.exception.OrderNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductUnavailableException;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
@@ -124,5 +125,33 @@ class OrderServiceTest {
         assertThrows(InsufficientStockException.class,
                 () -> orderService.createOrder(CLIENT, request(new OrderItemRequest(3L, 5))));
         verify(orderRepository, never()).save(any());
+    }
+
+    // ---------- US2 : mes commandes ----------
+
+    @Test
+    void listMyOrders_returnsOnlyOrdersOfCurrentClient() {
+        Order order = new Order();
+        order.setClientId("client-1");
+        order.setStatus(OrderStatus.PENDING);
+        order.setTotalAmount(BigDecimal.TEN);
+        when(orderRepository.findByClientIdOrderByIdDesc("client-1")).thenReturn(List.of(order));
+
+        List<OrderResponse> orders = orderService.listMyOrders(CLIENT);
+
+        assertEquals(1, orders.size());
+        assertEquals("client-1", orders.get(0).clientId());
+    }
+
+    @Test
+    void getMyOrder_ofAnotherClient_throwsNotFound() {
+        when(orderRepository.findByIdAndClientId(5L, "client-1")).thenReturn(Optional.empty());
+
+        assertThrows(OrderNotFoundException.class, () -> orderService.getMyOrder(CLIENT, 5L));
+    }
+
+    @Test
+    void listMyOrders_byMerchant_isForbidden() {
+        assertThrows(ForbiddenException.class, () -> orderService.listMyOrders(MERCHANT));
     }
 }
