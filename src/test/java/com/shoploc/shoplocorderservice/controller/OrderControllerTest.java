@@ -1,6 +1,7 @@
 package com.shoploc.shoplocorderservice.controller;
 
 import com.shoploc.shoplocorderservice.dto.CreateOrderRequest;
+import com.shoploc.shoplocorderservice.dto.MerchantOrderItemResponse;
 import com.shoploc.shoplocorderservice.dto.OrderResponse;
 import com.shoploc.shoplocorderservice.entity.OrderStatus;
 import com.shoploc.shoplocorderservice.exception.ForbiddenException;
@@ -160,5 +161,18 @@ class OrderControllerTest {
 
         mockMvc.perform(get("/api/order/8").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void listMerchantOrderItems_returns200() throws Exception {
+        CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
+        when(orderService.listMerchantOrderItems(merchant)).thenReturn(List.of(
+                new MerchantOrderItemResponse(7L, OrderStatus.PENDING, Instant.now(), 1L, "Pain", 2,
+                        new BigDecimal("3.50"), new BigDecimal("7.00"))));
+
+        mockMvc.perform(get("/api/order/merchant/items")
+                        .header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].productName").value("Pain"));
     }
 }

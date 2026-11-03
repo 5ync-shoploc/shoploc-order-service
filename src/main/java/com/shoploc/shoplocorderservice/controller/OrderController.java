@@ -1,6 +1,7 @@
 package com.shoploc.shoplocorderservice.controller;
 
 import com.shoploc.shoplocorderservice.dto.CreateOrderRequest;
+import com.shoploc.shoplocorderservice.dto.MerchantOrderItemResponse;
 import com.shoploc.shoplocorderservice.dto.OrderResponse;
 import com.shoploc.shoplocorderservice.security.CurrentUser;
 import com.shoploc.shoplocorderservice.service.OrderService;
@@ -48,4 +49,9 @@ public class OrderController {
         return orderService.getMyOrder(user, orderId);
     }
 
+    /** US3 : lignes de commande contenant mes articles (rôle COMMERCANT). */
+    @GetMapping("/merchant/items")
+    public List<MerchantOrderItemResponse> listMerchantOrderItems(CurrentUser user) {
+        return orderService.listMerchantOrderItems(user);
+    }
 }

@@ -6,12 +6,14 @@ import com.shoploc.shoplocorderservice.dto.CreateOrderRequest;
 import com.shoploc.shoplocorderservice.dto.OrderItemRequest;
 import com.shoploc.shoplocorderservice.dto.OrderResponse;
 import com.shoploc.shoplocorderservice.entity.Order;
+import com.shoploc.shoplocorderservice.entity.OrderItem;
 import com.shoploc.shoplocorderservice.entity.OrderStatus;
 import com.shoploc.shoplocorderservice.exception.ForbiddenException;
 import com.shoploc.shoplocorderservice.exception.InsufficientStockException;
 import com.shoploc.shoplocorderservice.exception.OrderNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductUnavailableException;
+import com.shoploc.shoplocorderservice.repository.OrderItemRepository;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
 import com.shoploc.shoplocorderservice.security.CurrentUser;
 import com.shoploc.shoplocorderservice.security.Role;
@@ -47,6 +49,9 @@ class OrderServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private OrderItemRepository orderItemRepository;
 
     @Mock
     private ProductCatalogClient catalog;
@@ -153,5 +158,28 @@ class OrderServiceTest {
     @Test
     void listMyOrders_byMerchant_isForbidden() {
         assertThrows(ForbiddenException.class, () -> orderService.listMyOrders(MERCHANT));
+    }
+
+    // ---------- US3 : vue commerçant ----------
+
+    @Test
+    void listMerchantOrderItems_returnsOnlyItemsOfCurrentMerchant() {
+        Order order = new Order();
+        order.setClientId("client-1");
+        order.setStatus(OrderStatus.PENDING);
+        OrderItem item = new OrderItem(1L, "Pain", "merchant-1", 2, new BigDecimal("3.50"));
+        order.addItem(item);
+        when(orderItemRepository.findByMerchantIdOrderByIdDesc("merchant-1")).thenReturn(List.of(item));
+
+        var items = orderService.listMerchantOrderItems(MERCHANT);
+
+        assertEquals(1, items.size());
+        assertEquals(new BigDecimal("7.00"), items.get(0).lineTotal());
+        assertEquals(OrderStatus.PENDING, items.get(0).orderStatus());
+    }
+
+    @Test
+    void listMerchantOrderItems_byClient_isForbidden() {
+        assertThrows(ForbiddenException.class, () -> orderService.listMerchantOrderItems(CLIENT));
     }
 }
