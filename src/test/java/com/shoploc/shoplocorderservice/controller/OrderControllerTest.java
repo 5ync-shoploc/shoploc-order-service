@@ -6,6 +6,7 @@ import com.shoploc.shoplocorderservice.entity.OrderStatus;
 import com.shoploc.shoplocorderservice.exception.ForbiddenException;
 import com.shoploc.shoplocorderservice.exception.GlobalExceptionHandler;
 import com.shoploc.shoplocorderservice.exception.InsufficientStockException;
+import com.shoploc.shoplocorderservice.exception.OrderNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductUnavailableException;
 import com.shoploc.shoplocorderservice.security.CurrentUser;
@@ -27,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -130,5 +132,33 @@ class OrderControllerTest {
     void createOrder_insufficientStock_returns409() throws Exception {
         when(orderService.createOrder(any(), any())).thenThrow(new InsufficientStockException(2L, 6, 5));
         postOrder("client-1", "CLIENT", VALID_BODY).andExpect(status().isConflict());
+    }
+
+    // ---------- GET ----------
+
+    @Test
+    void listMyOrders_returns200() throws Exception {
+        when(orderService.listMyOrders(CLIENT)).thenReturn(List.of(sampleOrder()));
+
+        mockMvc.perform(get("/api/order").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void getMyOrder_returns200() throws Exception {
+        when(orderService.getMyOrder(CLIENT, 7L)).thenReturn(sampleOrder());
+
+        mockMvc.perform(get("/api/order/7").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7));
+    }
+
+    @Test
+    void getMyOrder_notMine_returns404() throws Exception {
+        when(orderService.getMyOrder(CLIENT, 8L)).thenThrow(new OrderNotFoundException(8L));
+
+        mockMvc.perform(get("/api/order/8").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isNotFound());
     }
 }

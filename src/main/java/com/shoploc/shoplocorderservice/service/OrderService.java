@@ -9,6 +9,7 @@ import com.shoploc.shoplocorderservice.entity.Order;
 import com.shoploc.shoplocorderservice.entity.OrderItem;
 import com.shoploc.shoplocorderservice.entity.OrderStatus;
 import com.shoploc.shoplocorderservice.exception.InsufficientStockException;
+import com.shoploc.shoplocorderservice.exception.OrderNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductUnavailableException;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -70,6 +72,24 @@ public class OrderService {
         productCatalogClient.decrementStock(quantities);
 
         return OrderResponse.from(saved);
+    }
+
+    /** US2 : un client voit la liste de ses commandes. */
+    @Transactional(readOnly = true)
+    public List<OrderResponse> listMyOrders(CurrentUser user) {
+        user.requireRole(Role.CLIENT);
+        return orderRepository.findByClientIdOrderByIdDesc(user.id()).stream()
+                .map(OrderResponse::from)
+                .toList();
+    }
+
+    /** US2 : un client voit le détail d'une de ses commandes (404 si elle n'est pas à lui). */
+    @Transactional(readOnly = true)
+    public OrderResponse getMyOrder(CurrentUser user, Long orderId) {
+        user.requireRole(Role.CLIENT);
+        return orderRepository.findByIdAndClientId(orderId, user.id())
+                .map(OrderResponse::from)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 
 }

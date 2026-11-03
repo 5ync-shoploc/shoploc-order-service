@@ -1,5 +1,6 @@
 package com.shoploc.shoplocorderservice;
 
+import com.jayway.jsonpath.JsonPath;
 import com.shoploc.shoplocorderservice.catalog.InMemoryProductCatalogClient;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +54,13 @@ class OrderFlowIntegrationTest {
                 .header("X-User-Role", role)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\": " + itemsJson + "}"));
+    }
+
+    private long createOrder(String clientId, String itemsJson) throws Exception {
+        String body = postOrder(clientId, "CLIENT", itemsJson)
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return ((Number) JsonPath.read(body, "$.id")).longValue();
     }
 
     // ---------- US1 ----------
@@ -99,5 +108,25 @@ class OrderFlowIntegrationTest {
         mockMvc.perform(post("/api/order").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\": [{\"productId\": 1, \"quantity\": 1}]}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ---------- US2 ----------
+
+    @Test
+    void client_seesOnlyOwnOrders() throws Exception {
+        long mine = createOrder("client-1", "[{\"productId\": 1, \"quantity\": 1}]");
+        long other = createOrder("client-2", "[{\"productId\": 3, \"quantity\": 1}]");
+
+        mockMvc.perform(get("/api/order").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(mine));
+
+        mockMvc.perform(get("/api/order/" + mine).header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].productName").value("Pain de campagne"));
+
+        mockMvc.perform(get("/api/order/" + other).header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isNotFound());
     }
 }
