@@ -15,6 +15,7 @@ import com.shoploc.shoplocorderservice.security.CurrentUserArgumentResolver;
 import com.shoploc.shoplocorderservice.security.Role;
 import com.shoploc.shoplocorderservice.service.OrderService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -73,7 +74,8 @@ class OrderControllerTest {
     // ---------- POST /api/order ----------
 
     @Test
-    void createOrder_returns201WithLocation() throws Exception {
+    @DisplayName("POST /api/order : 201 avec l'en-tête Location")
+    void createOrderReturns201WithLocation() throws Exception {
         when(orderService.createOrder(any(CurrentUser.class), any(CreateOrderRequest.class))).thenReturn(sampleOrder());
 
         postOrder("client-1", "client", VALID_BODY) // le rôle est insensible à la casse
@@ -84,7 +86,8 @@ class OrderControllerTest {
     }
 
     @Test
-    void createOrder_withoutItems_returns400() throws Exception {
+    @DisplayName("POST sans article : 400")
+    void createOrderWithoutItemsReturns400() throws Exception {
         postOrder("client-1", "CLIENT", """
                 {"items": []}
                 """).andExpect(status().isBadRequest());
@@ -92,7 +95,8 @@ class OrderControllerTest {
     }
 
     @Test
-    void createOrder_withZeroQuantity_returns400() throws Exception {
+    @DisplayName("POST avec une quantité à 0 : 400")
+    void createOrderWithZeroQuantityReturns400() throws Exception {
         postOrder("client-1", "CLIENT", """
                 {"items": [{"productId": 1, "quantity": 0}]}
                 """).andExpect(status().isBadRequest());
@@ -100,37 +104,43 @@ class OrderControllerTest {
     }
 
     @Test
-    void createOrder_withoutIdentityHeaders_returns401() throws Exception {
+    @DisplayName("POST sans identité : 401")
+    void createOrderWithoutIdentityHeadersReturns401() throws Exception {
         postOrder(null, null, VALID_BODY).andExpect(status().isUnauthorized());
         verifyNoInteractions(orderService);
     }
 
     @Test
-    void createOrder_withUnknownRole_returns403() throws Exception {
+    @DisplayName("POST avec un rôle inconnu : 403")
+    void createOrderWithUnknownRoleReturns403() throws Exception {
         postOrder("x", "ADMIN", VALID_BODY).andExpect(status().isForbidden());
         verifyNoInteractions(orderService);
     }
 
     @Test
-    void createOrder_whenServiceForbids_returns403() throws Exception {
+    @DisplayName("POST refusé par le service (mauvais rôle) : 403")
+    void createOrderReturns403WhenServiceForbids() throws Exception {
         when(orderService.createOrder(any(), any())).thenThrow(new ForbiddenException("Role CLIENT required"));
         postOrder("merchant-1", "COMMERCANT", VALID_BODY).andExpect(status().isForbidden());
     }
 
     @Test
-    void createOrder_unknownProduct_returns422() throws Exception {
+    @DisplayName("POST avec un article inconnu : 422")
+    void createOrderWithUnknownProductReturns422() throws Exception {
         when(orderService.createOrder(any(), any())).thenThrow(new ProductNotFoundException(99L));
         postOrder("client-1", "CLIENT", VALID_BODY).andExpect(status().is(422));
     }
 
     @Test
-    void createOrder_inactiveProduct_returns422() throws Exception {
+    @DisplayName("POST avec un article inactif : 422")
+    void createOrderWithInactiveProductReturns422() throws Exception {
         when(orderService.createOrder(any(), any())).thenThrow(new ProductUnavailableException(4L));
         postOrder("client-1", "CLIENT", VALID_BODY).andExpect(status().is(422));
     }
 
     @Test
-    void createOrder_insufficientStock_returns409() throws Exception {
+    @DisplayName("POST avec un stock insuffisant : 409")
+    void createOrderWithInsufficientStockReturns409() throws Exception {
         when(orderService.createOrder(any(), any())).thenThrow(new InsufficientStockException(2L, 6, 5));
         postOrder("client-1", "CLIENT", VALID_BODY).andExpect(status().isConflict());
     }
@@ -138,7 +148,8 @@ class OrderControllerTest {
     // ---------- GET ----------
 
     @Test
-    void listMyOrders_returns200() throws Exception {
+    @DisplayName("GET /api/order : 200")
+    void listMyOrdersReturns200() throws Exception {
         when(orderService.listMyOrders(CLIENT)).thenReturn(List.of(sampleOrder()));
 
         mockMvc.perform(get("/api/order").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
@@ -147,7 +158,8 @@ class OrderControllerTest {
     }
 
     @Test
-    void getMyOrder_returns200() throws Exception {
+    @DisplayName("GET /api/order/{id} : 200")
+    void getMyOrderReturns200() throws Exception {
         when(orderService.getMyOrder(CLIENT, 7L)).thenReturn(sampleOrder());
 
         mockMvc.perform(get("/api/order/7").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
@@ -156,7 +168,8 @@ class OrderControllerTest {
     }
 
     @Test
-    void getMyOrder_notMine_returns404() throws Exception {
+    @DisplayName("GET /api/order/{id} d'un autre client : 404")
+    void getMyOrderOfAnotherClientReturns404() throws Exception {
         when(orderService.getMyOrder(CLIENT, 8L)).thenThrow(new OrderNotFoundException(8L));
 
         mockMvc.perform(get("/api/order/8").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
@@ -164,7 +177,8 @@ class OrderControllerTest {
     }
 
     @Test
-    void listMerchantOrderItems_returns200() throws Exception {
+    @DisplayName("GET /api/order/merchant/items : 200")
+    void listMerchantOrderItemsReturns200() throws Exception {
         CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
         when(orderService.listMerchantOrderItems(merchant)).thenReturn(List.of(
                 new MerchantOrderItemResponse(7L, OrderStatus.PENDING, Instant.now(), 1L, "Pain", 2,
