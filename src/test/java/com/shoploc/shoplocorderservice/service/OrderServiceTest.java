@@ -17,6 +17,7 @@ import com.shoploc.shoplocorderservice.repository.OrderItemRepository;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
 import com.shoploc.shoplocorderservice.security.CurrentUser;
 import com.shoploc.shoplocorderservice.security.Role;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -66,7 +67,8 @@ class OrderServiceTest {
     // ---------- US1 : création ----------
 
     @Test
-    void createOrder_freezesPrices_computesTotal_setsPending_andDecrementsStock() {
+    @DisplayName("Création : prix figés, total calculé, statut EN_ATTENTE, stock décrémenté")
+    void createOrderFreezesPricesComputesTotalSetsPendingAndDecrementsStock() {
         when(catalog.findProduct(1L)).thenReturn(Optional.of(BREAD));
         when(catalog.findProduct(3L)).thenReturn(Optional.of(CHEESE));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -84,7 +86,8 @@ class OrderServiceTest {
     }
 
     @Test
-    void createOrder_sameProductTwice_mergesQuantities() {
+    @DisplayName("Création : le même article deux fois, les quantités sont additionnées")
+    void createOrderMergesQuantitiesOfSameProduct() {
         when(catalog.findProduct(1L)).thenReturn(Optional.of(BREAD));
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -98,14 +101,16 @@ class OrderServiceTest {
     }
 
     @Test
-    void createOrder_byMerchant_isForbidden() {
+    @DisplayName("Création par un commerçant : interdit")
+    void createOrderByMerchantIsForbidden() {
         assertThrows(ForbiddenException.class,
                 () -> orderService.createOrder(MERCHANT, request(new OrderItemRequest(1L, 1))));
         verifyNoInteractions(catalog, orderRepository);
     }
 
     @Test
-    void createOrder_unknownProduct_throwsProductNotFound() {
+    @DisplayName("Création avec un article inconnu : ProductNotFoundException")
+    void createOrderWithUnknownProductThrowsProductNotFound() {
         when(catalog.findProduct(99L)).thenReturn(Optional.empty());
 
         assertThrows(ProductNotFoundException.class,
@@ -114,7 +119,8 @@ class OrderServiceTest {
     }
 
     @Test
-    void createOrder_inactiveProduct_throwsProductUnavailable() {
+    @DisplayName("Création avec un article inactif : ProductUnavailableException")
+    void createOrderWithInactiveProductThrowsProductUnavailable() {
         when(catalog.findProduct(4L)).thenReturn(Optional.of(
                 new ProductInfo(4L, "Confiture", BigDecimal.ONE, false, 50, "merchant-2")));
 
@@ -124,7 +130,8 @@ class OrderServiceTest {
     }
 
     @Test
-    void createOrder_insufficientStock_throwsInsufficientStock() {
+    @DisplayName("Création avec un stock insuffisant : InsufficientStockException")
+    void createOrderWithInsufficientStockThrowsInsufficientStock() {
         when(catalog.findProduct(3L)).thenReturn(Optional.of(CHEESE)); // stock 4
 
         assertThrows(InsufficientStockException.class,
@@ -135,7 +142,8 @@ class OrderServiceTest {
     // ---------- US2 : mes commandes ----------
 
     @Test
-    void listMyOrders_returnsOnlyOrdersOfCurrentClient() {
+    @DisplayName("Mes commandes : uniquement celles du client connecté")
+    void listMyOrdersReturnsOnlyOrdersOfCurrentClient() {
         Order order = new Order();
         order.setClientId("client-1");
         order.setStatus(OrderStatus.PENDING);
@@ -149,21 +157,24 @@ class OrderServiceTest {
     }
 
     @Test
-    void getMyOrder_ofAnotherClient_throwsNotFound() {
+    @DisplayName("Détail de la commande d'un autre client : OrderNotFoundException")
+    void getMyOrderOfAnotherClientThrowsNotFound() {
         when(orderRepository.findByIdAndClientId(5L, "client-1")).thenReturn(Optional.empty());
 
         assertThrows(OrderNotFoundException.class, () -> orderService.getMyOrder(CLIENT, 5L));
     }
 
     @Test
-    void listMyOrders_byMerchant_isForbidden() {
+    @DisplayName("Mes commandes demandées par un commerçant : interdit")
+    void listMyOrdersByMerchantIsForbidden() {
         assertThrows(ForbiddenException.class, () -> orderService.listMyOrders(MERCHANT));
     }
 
     // ---------- US3 : vue commerçant ----------
 
     @Test
-    void listMerchantOrderItems_returnsOnlyItemsOfCurrentMerchant() {
+    @DisplayName("Vue commerçant : uniquement les lignes du commerçant connecté")
+    void listMerchantOrderItemsReturnsOnlyItemsOfCurrentMerchant() {
         Order order = new Order();
         order.setClientId("client-1");
         order.setStatus(OrderStatus.PENDING);
@@ -179,7 +190,8 @@ class OrderServiceTest {
     }
 
     @Test
-    void listMerchantOrderItems_byClient_isForbidden() {
+    @DisplayName("Vue commerçant demandée par un client : interdit")
+    void listMerchantOrderItemsByClientIsForbidden() {
         assertThrows(ForbiddenException.class, () -> orderService.listMerchantOrderItems(CLIENT));
     }
 }

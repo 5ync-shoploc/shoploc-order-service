@@ -4,6 +4,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.shoploc.shoplocorderservice.catalog.InMemoryProductCatalogClient;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -66,7 +67,8 @@ class OrderFlowIntegrationTest {
     // ---------- US1 ----------
 
     @Test
-    void client_createsOrder_pricesFrozen_statusPending_stockDecremented() throws Exception {
+    @DisplayName("Un client passe une commande : prix figés, statut EN_ATTENTE, stock décrémenté")
+    void clientCreatesOrderWithFrozenPricesPendingStatusAndDecrementedStock() throws Exception {
         postOrder("client-1", "CLIENT", """
                 [{"productId": 1, "quantity": 2}, {"productId": 3, "quantity": 1}]
                 """)
@@ -83,7 +85,8 @@ class OrderFlowIntegrationTest {
     }
 
     @Test
-    void insufficientStock_returns409_andNothingIsSaved() throws Exception {
+    @DisplayName("Stock insuffisant : 409 et aucune commande enregistrée")
+    void insufficientStockReturns409AndSavesNothing() throws Exception {
         postOrder("client-1", "CLIENT", """
                 [{"productId": 1, "quantity": 1}, {"productId": 2, "quantity": 6}]
                 """).andExpect(status().isConflict());
@@ -94,14 +97,16 @@ class OrderFlowIntegrationTest {
     }
 
     @Test
-    void inactiveOrUnknownProduct_returns422() throws Exception {
+    @DisplayName("Article inactif ou inconnu : 422")
+    void inactiveOrUnknownProductReturns422() throws Exception {
         postOrder("client-1", "CLIENT", "[{\"productId\": 4, \"quantity\": 1}]").andExpect(status().is(422));
         postOrder("client-1", "CLIENT", "[{\"productId\": 999, \"quantity\": 1}]").andExpect(status().is(422));
         assertEquals(0, orderRepository.findAll().size());
     }
 
     @Test
-    void merchantCannotOrder_403_andAnonymousGets401() throws Exception {
+    @DisplayName("Un commerçant ne peut pas commander (403), un anonyme reçoit 401")
+    void merchantGets403AndAnonymousGets401WhenOrdering() throws Exception {
         postOrder("merchant-1", "COMMERCANT", "[{\"productId\": 1, \"quantity\": 1}]")
                 .andExpect(status().isForbidden());
 
@@ -113,7 +118,8 @@ class OrderFlowIntegrationTest {
     // ---------- US2 ----------
 
     @Test
-    void client_seesOnlyOwnOrders() throws Exception {
+    @DisplayName("Un client ne voit que ses propres commandes")
+    void clientSeesOnlyOwnOrders() throws Exception {
         long mine = createOrder("client-1", "[{\"productId\": 1, \"quantity\": 1}]");
         long other = createOrder("client-2", "[{\"productId\": 3, \"quantity\": 1}]");
 
@@ -133,7 +139,8 @@ class OrderFlowIntegrationTest {
     // ---------- US3 ----------
 
     @Test
-    void merchant_seesOnlyLinesOfOwnProducts() throws Exception {
+    @DisplayName("Un commerçant ne voit que les lignes de ses articles")
+    void merchantSeesOnlyLinesOfOwnProducts() throws Exception {
         // une commande qui mélange les articles de merchant-1 (produit 1) et merchant-2 (produit 3)
         createOrder("client-1", "[{\"productId\": 1, \"quantity\": 2}, {\"productId\": 3, \"quantity\": 1}]");
 
