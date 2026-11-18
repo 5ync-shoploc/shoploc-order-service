@@ -14,37 +14,51 @@ import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-// "order" est un mot réservé en SQL, d'où le nom de table "orders"
+/**
+ * Table "commande" du schéma orders (voir le MLD).
+ * id_client et id_paiement référencent d'autres services : pas de clé étrangère SQL.
+ */
 @Entity
-@Table(name = "orders")
+@Table(name = "commande")
 public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_commande")
     private Long id;
 
-    @Column(nullable = false)
-    private String clientId;
+    @Column(name = "date_commande", nullable = false, updatable = false)
+    private Instant orderDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "statut", nullable = false, length = 20)
     private OrderStatus status;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(name = "montant_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
-    @Column(nullable = false, updatable = false)
-    private Instant createdAt;
+    /** Créneau de retrait choisi par le client (facultatif pour l'instant). */
+    @Column(name = "creneau_retrait")
+    private LocalDateTime pickupSlot;
+
+    /** Identifiant Keycloak du client (keycloak-db.utilisateur). */
+    @Column(name = "id_client", nullable = false)
+    private String clientId;
+
+    /** Référence vers payment.paiement : vide tant que la commande n'est pas payée. */
+    @Column(name = "id_paiement")
+    private Long paymentId;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
     @PrePersist
     void onCreate() {
-        this.createdAt = Instant.now();
+        this.orderDate = Instant.now();
     }
 
     /** Ajoute une ligne et garde les deux côtés de la relation synchronisés. */
@@ -55,8 +69,7 @@ public class Order {
 
     public Long getId() { return id; }
 
-    public String getClientId() { return clientId; }
-    public void setClientId(String clientId) { this.clientId = clientId; }
+    public Instant getOrderDate() { return orderDate; }
 
     public OrderStatus getStatus() { return status; }
     public void setStatus(OrderStatus status) { this.status = status; }
@@ -64,7 +77,14 @@ public class Order {
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
 
-    public Instant getCreatedAt() { return createdAt; }
+    public LocalDateTime getPickupSlot() { return pickupSlot; }
+    public void setPickupSlot(LocalDateTime pickupSlot) { this.pickupSlot = pickupSlot; }
+
+    public String getClientId() { return clientId; }
+    public void setClientId(String clientId) { this.clientId = clientId; }
+
+    public Long getPaymentId() { return paymentId; }
+    public void setPaymentId(Long paymentId) { this.paymentId = paymentId; }
 
     public List<OrderItem> getItems() { return items; }
 }

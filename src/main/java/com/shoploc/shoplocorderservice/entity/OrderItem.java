@@ -1,46 +1,45 @@
 package com.shoploc.shoplocorderservice.entity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 
 /**
- * Ligne de commande. Le nom, le prix et le commerçant sont copiés depuis le catalogue
- * au moment de la commande : si le prix change ensuite, la commande garde l'ancien prix.
+ * Table "ligne_commande" du schéma orders (voir le MLD).
+ * Clé primaire : (id_commande, id_produit). Un produit apparaît donc au plus une fois par commande.
+ * Le nom, le prix et le commerçant sont copiés depuis le catalogue au moment de la commande :
+ * si le prix change ensuite, la commande garde l'ancien prix.
  */
 @Entity
-@Table(name = "order_items")
+@Table(name = "ligne_commande")
 public class OrderItem {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @EmbeddedId
+    private OrderItemId id;
 
+    @MapsId("orderId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "id_commande")
     private Order order;
 
-    @Column(nullable = false)
-    private Long productId;
-
-    @Column(nullable = false)
+    @Column(name = "nom_produit", nullable = false)
     private String productName;
 
-    @Column(nullable = false)
+    /** Identifiant Keycloak du commerçant propriétaire du produit (keycloak-db.utilisateur). */
+    @Column(name = "id_commercant", nullable = false)
     private String merchantId;
 
-    @Column(nullable = false)
+    @Column(name = "quantite", nullable = false)
     private Integer quantity;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(name = "prix_unitaire", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
     protected OrderItem() {
@@ -48,7 +47,7 @@ public class OrderItem {
     }
 
     public OrderItem(Long productId, String productName, String merchantId, Integer quantity, BigDecimal unitPrice) {
-        this.productId = productId;
+        this.id = new OrderItemId(null, productId);
         this.productName = productName;
         this.merchantId = merchantId;
         this.quantity = quantity;
@@ -60,12 +59,12 @@ public class OrderItem {
         return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 
-    public Long getId() { return id; }
+    public OrderItemId getId() { return id; }
 
     public Order getOrder() { return order; }
     void setOrder(Order order) { this.order = order; }
 
-    public Long getProductId() { return productId; }
+    public Long getProductId() { return id.getProductId(); }
 
     public String getProductName() { return productName; }
 

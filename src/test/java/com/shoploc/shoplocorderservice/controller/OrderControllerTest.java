@@ -67,8 +67,8 @@ class OrderControllerTest {
     }
 
     private static OrderResponse sampleOrder() {
-        return new OrderResponse(7L, "client-1", OrderStatus.PENDING, new BigDecimal("7.00"),
-                Instant.now(), List.of());
+        return new OrderResponse(7L, "client-1", OrderStatus.EN_ATTENTE, new BigDecimal("7.00"),
+                Instant.now(), null, null, List.of());
     }
 
     // ---------- POST /api/order ----------
@@ -82,7 +82,7 @@ class OrderControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/order/7"))
                 .andExpect(jsonPath("$.id").value(7))
-                .andExpect(jsonPath("$.status").value("PENDING"));
+                .andExpect(jsonPath("$.status").value("EN_ATTENTE"));
     }
 
     @Test
@@ -99,6 +99,15 @@ class OrderControllerTest {
     void createOrderWithZeroQuantityReturns400() throws Exception {
         postOrder("client-1", "CLIENT", """
                 {"items": [{"productId": 1, "quantity": 0}]}
+                """).andExpect(status().isBadRequest());
+        verifyNoInteractions(orderService);
+    }
+
+    @Test
+    @DisplayName("POST avec un créneau de retrait dans le passé : 400")
+    void createOrderWithPastPickupSlotReturns400() throws Exception {
+        postOrder("client-1", "CLIENT", """
+                {"items": [{"productId": 1, "quantity": 1}], "pickupSlot": "2020-01-01T10:00:00"}
                 """).andExpect(status().isBadRequest());
         verifyNoInteractions(orderService);
     }
@@ -181,7 +190,7 @@ class OrderControllerTest {
     void listMerchantOrderItemsReturns200() throws Exception {
         CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
         when(orderService.listMerchantOrderItems(merchant)).thenReturn(List.of(
-                new MerchantOrderItemResponse(7L, OrderStatus.PENDING, Instant.now(), 1L, "Pain", 2,
+                new MerchantOrderItemResponse(7L, OrderStatus.EN_ATTENTE, Instant.now(), 1L, "Pain", 2,
                         new BigDecimal("3.50"), new BigDecimal("7.00"))));
 
         mockMvc.perform(get("/api/order/merchant/items")

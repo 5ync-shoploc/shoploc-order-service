@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -73,7 +75,7 @@ class OrderFlowIntegrationTest {
                 [{"productId": 1, "quantity": 2}, {"productId": 3, "quantity": 1}]
                 """)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.status").value("EN_ATTENTE"))
                 .andExpect(jsonPath("$.clientId").value("client-1"))
                 .andExpect(jsonPath("$.totalAmount").value(13.8))   // 2 x 3.50 + 1 x 6.80
                 .andExpect(jsonPath("$.items[0].unitPrice").value(3.5))
@@ -82,6 +84,24 @@ class OrderFlowIntegrationTest {
         assertEquals(98, catalog.findProduct(1L).orElseThrow().stock());
         assertEquals(19, catalog.findProduct(3L).orElseThrow().stock());
         assertEquals(1, orderRepository.findAll().size());
+    }
+
+    @Test
+    @DisplayName("Le créneau de retrait est enregistré et relu depuis la base")
+    void pickupSlotIsStoredAndReturned() throws Exception {
+        String slot = LocalDateTime.now().plusDays(2).withHour(10).withMinute(30).withSecond(0).withNano(0).toString();
+        String body = mockMvc.perform(post("/api/order")
+                        .header("X-User-Id", "client-1")
+                        .header("X-User-Role", "CLIENT")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\": [{\"productId\": 1, \"quantity\": 1}], \"pickupSlot\": \"" + slot + "\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long id = ((Number) JsonPath.read(body, "$.id")).longValue();
+
+        var saved = orderRepository.findById(id).orElseThrow();
+        assertEquals(slot, saved.getPickupSlot().toString());
+        assertEquals(null, saved.getPaymentId()); // pas encore payée
     }
 
     @Test
