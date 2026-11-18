@@ -85,7 +85,8 @@ Règles métier :
 - Chaque article doit exister, être actif et avoir un stock suffisant.
 - Le stock est décrémenté à la validation de la commande.
 - Le nom, le prix unitaire et le commerçant de l'article sont copiés dans la ligne de commande : le prix reste figé.
-- Une nouvelle commande a le statut `PENDING` (EN_ATTENTE).
+- Une nouvelle commande a le statut `EN_ATTENTE`.
+- Le créneau de retrait (`pickupSlot`) est facultatif ; s'il est donné, il doit être dans le futur.
 - Un client ne voit que ses propres commandes. La commande d'un autre client renvoie `404`.
 - Un commerçant ne voit que les lignes de commande de ses propres articles.
 
@@ -105,7 +106,8 @@ Content-Type: application/json
   "items": [
     { "productId": 1, "quantity": 2 },
     { "productId": 3, "quantity": 1 }
-  ]
+  ],
+  "pickupSlot": "2026-11-20T10:30:00"
 }
 ```
 
@@ -115,9 +117,11 @@ Réponse `201 Created`, avec l'en-tête `Location: /api/order/{id}` :
 {
   "id": 1,
   "clientId": "client-1",
-  "status": "PENDING",
+  "status": "EN_ATTENTE",
   "totalAmount": 13.80,
-  "createdAt": "2026-11-03T19:10:00Z",
+  "orderDate": "2026-11-18T19:10:00Z",
+  "pickupSlot": "2026-11-20T10:30:00",
+  "paymentId": null,
   "items": [
     { "productId": 1, "productName": "Pain de campagne", "merchantId": "merchant-1",
       "quantity": 2, "unitPrice": 3.50, "lineTotal": 7.00 },
@@ -135,12 +139,41 @@ Les erreurs suivent le format standard Problem Details (RFC 9457).
 
 | Code | Cas |
 |---|---|
-| `400` | Corps invalide : `items` vide, `productId` manquant, `quantity` ≤ 0 |
+| `400` | Corps invalide : `items` vide, `productId` manquant, `quantity` ≤ 0, `pickupSlot` dans le passé |
 | `401` | En-tête `X-User-Id` ou `X-User-Role` absent |
 | `403` | Rôle incorrect ou inconnu (par exemple un commerçant qui passe une commande) |
 | `404` | Commande introuvable, ou appartenant à un autre client |
 | `409` | Stock insuffisant |
 | `422` | Article inconnu ou inactif |
+
+## Modèle de données (schéma `orders`)
+
+Conforme au MLD commun : base `shoploc-db`, un schéma par service. L'order-service n'écrit que dans le schéma `orders`.
+
+**commande**
+
+| Colonne | Contenu |
+|---|---|
+| `id_commande` (PK) | identifiant de la commande |
+| `date_commande` | date de création |
+| `statut` | `PANIER`, `EN_ATTENTE`, `VALIDEE`, `PRETE`, `RETIREE`, `ANNULEE` |
+| `montant_total` | total de la commande |
+| `creneau_retrait` | créneau de retrait choisi (facultatif) |
+| `id_client` | → `keycloak-db.utilisateur` (pas de clé étrangère SQL) |
+| `id_paiement` | → `payment.paiement`, vide tant que la commande n'est pas payée |
+
+**ligne_commande** — clé primaire (`id_commande`, `id_produit`)
+
+| Colonne | Contenu |
+|---|---|
+| `id_commande` (FK) | → `commande.id_commande` |
+| `id_produit` | → `catalog.produit` (pas de clé étrangère SQL) |
+| `nom_produit` | copie du nom au moment de la commande |
+| `id_commercant` | → `keycloak-db.utilisateur` |
+| `quantite` | quantité commandée |
+| `prix_unitaire` | prix figé au moment de la commande |
+
+Les références vers les autres services ne sont pas des clés étrangères SQL : la cohérence est assurée par les API (et plus tard par les événements Kafka).
 
 ## Dépendances simulées (temporaire)
 

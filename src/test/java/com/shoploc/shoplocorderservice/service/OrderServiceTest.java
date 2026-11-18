@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +62,7 @@ class OrderServiceTest {
     private OrderService orderService;
 
     private static CreateOrderRequest request(OrderItemRequest... items) {
-        return new CreateOrderRequest(List.of(items));
+        return new CreateOrderRequest(List.of(items), null);
     }
 
     // ---------- US1 : création ----------
@@ -78,7 +79,7 @@ class OrderServiceTest {
                 new OrderItemRequest(3L, 1)));   // 1 x 6.80 = 6.80
 
         assertEquals("client-1", response.clientId());
-        assertEquals(OrderStatus.PENDING, response.status());
+        assertEquals(OrderStatus.EN_ATTENTE, response.status());
         assertEquals(new BigDecimal("13.80"), response.totalAmount());
         assertEquals(new BigDecimal("3.50"), response.items().get(0).unitPrice());
         assertEquals("merchant-2", response.items().get(1).merchantId());
@@ -98,6 +99,20 @@ class OrderServiceTest {
         assertEquals(1, response.items().size());
         assertEquals(5, response.items().get(0).quantity());
         verify(catalog).decrementStock(Map.of(1L, 5));
+    }
+
+    @Test
+    @DisplayName("Création : le créneau de retrait est enregistré dans la commande")
+    void createOrderKeepsPickupSlot() {
+        when(catalog.findProduct(1L)).thenReturn(Optional.of(BREAD));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        LocalDateTime slot = LocalDateTime.now().plusDays(1).withNano(0);
+
+        OrderResponse response = orderService.createOrder(CLIENT,
+                new CreateOrderRequest(List.of(new OrderItemRequest(1L, 1)), slot));
+
+        assertEquals(slot, response.pickupSlot());
+        assertEquals(null, response.paymentId());
     }
 
     @Test
@@ -146,7 +161,7 @@ class OrderServiceTest {
     void listMyOrdersReturnsOnlyOrdersOfCurrentClient() {
         Order order = new Order();
         order.setClientId("client-1");
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(OrderStatus.EN_ATTENTE);
         order.setTotalAmount(BigDecimal.TEN);
         when(orderRepository.findByClientIdOrderByIdDesc("client-1")).thenReturn(List.of(order));
 
@@ -177,16 +192,16 @@ class OrderServiceTest {
     void listMerchantOrderItemsReturnsOnlyItemsOfCurrentMerchant() {
         Order order = new Order();
         order.setClientId("client-1");
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(OrderStatus.EN_ATTENTE);
         OrderItem item = new OrderItem(1L, "Pain", "merchant-1", 2, new BigDecimal("3.50"));
         order.addItem(item);
-        when(orderItemRepository.findByMerchantIdOrderByIdDesc("merchant-1")).thenReturn(List.of(item));
+        when(orderItemRepository.findByMerchantId("merchant-1")).thenReturn(List.of(item));
 
         var items = orderService.listMerchantOrderItems(MERCHANT);
 
         assertEquals(1, items.size());
         assertEquals(new BigDecimal("7.00"), items.get(0).lineTotal());
-        assertEquals(OrderStatus.PENDING, items.get(0).orderStatus());
+        assertEquals(OrderStatus.EN_ATTENTE, items.get(0).orderStatus());
     }
 
     @Test

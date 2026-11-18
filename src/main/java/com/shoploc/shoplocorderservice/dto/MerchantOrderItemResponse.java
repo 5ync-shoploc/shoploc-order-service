@@ -23,7 +23,7 @@ public record MerchantOrderItemResponse(
         return new MerchantOrderItemResponse(
                 order.getId(),
                 order.getStatus(),
-                order.getCreatedAt(),
+                order.getOrderDate(),
                 item.getProductId(),
                 item.getProductName(),
                 item.getQuantity(),

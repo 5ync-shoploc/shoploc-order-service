@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +54,8 @@ public class OrderService {
 
         Order order = new Order();
         order.setClientId(user.id());
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(OrderStatus.EN_ATTENTE);
+        order.setPickupSlot(request.pickupSlot());
 
         quantities.forEach((productId, quantity) -> {
             ProductInfo product = productCatalogClient.findProduct(productId)
@@ -102,8 +104,10 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<MerchantOrderItemResponse> listMerchantOrderItems(CurrentUser user) {
         user.requireRole(Role.COMMERCANT);
-        return orderItemRepository.findByMerchantIdOrderByIdDesc(user.id()).stream()
+        return orderItemRepository.findByMerchantId(user.id()).stream()
                 .map(MerchantOrderItemResponse::from)
+                // les commandes les plus récentes d'abord
+                .sorted(Comparator.comparing(MerchantOrderItemResponse::orderId).reversed())
                 .toList();
     }
 }
