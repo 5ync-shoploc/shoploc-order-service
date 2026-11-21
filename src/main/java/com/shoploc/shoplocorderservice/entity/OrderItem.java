@@ -71,6 +71,14 @@ public class OrderItem {
     public String getMerchantId() { return merchantId; }
 
     public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+
+    /** Met à jour le nom, le commerçant et le prix avec les valeurs actuelles du catalogue. */
+    public void refreshFromCatalog(String productName, String merchantId, BigDecimal unitPrice) {
+        this.productName = productName;
+        this.merchantId = merchantId;
+        this.unitPrice = unitPrice;
+    }
 
     public BigDecimal getUnitPrice() { return unitPrice; }
 }

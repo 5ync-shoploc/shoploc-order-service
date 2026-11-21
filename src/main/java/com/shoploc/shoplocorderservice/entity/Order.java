@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Table "commande" du schéma orders (voir le MLD).
@@ -31,7 +32,7 @@ public class Order {
     @Column(name = "id_commande")
     private Long id;
 
-    @Column(name = "date_commande", nullable = false, updatable = false)
+    @Column(name = "date_commande", nullable = false)
     private Instant orderDate;
 
     @Enumerated(EnumType.STRING)
@@ -67,9 +68,27 @@ public class Order {
         items.add(item);
     }
 
+    /** Ligne de commande d'un produit, si elle existe. */
+    public Optional<OrderItem> findItem(Long productId) {
+        return items.stream().filter(item -> item.getProductId().equals(productId)).findFirst();
+    }
+
+    /** Retire la ligne d'un produit (elle est supprimée en base grâce à orphanRemoval). */
+    public void removeItem(OrderItem item) {
+        items.remove(item);
+    }
+
+    /** Recalcule le total à partir des lignes. */
+    public void recomputeTotal() {
+        this.totalAmount = items.stream()
+                .map(OrderItem::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     public Long getId() { return id; }
 
     public Instant getOrderDate() { return orderDate; }
+    public void setOrderDate(Instant orderDate) { this.orderDate = orderDate; }
 
     public OrderStatus getStatus() { return status; }
     public void setStatus(OrderStatus status) { this.status = status; }

@@ -1,6 +1,7 @@
 package com.shoploc.shoplocorderservice.repository;
 
 import com.shoploc.shoplocorderservice.entity.Order;
+import com.shoploc.shoplocorderservice.entity.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -11,4 +12,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByClientIdOrderByIdDesc(String clientId);
 
     Optional<Order> findByIdAndClientId(Long id, String clientId);
+
+    /** Le panier d'un client : sa commande au statut PANIER (au plus une). */
+    Optional<Order> findFirstByClientIdAndStatus(String clientId, OrderStatus status);
 }
