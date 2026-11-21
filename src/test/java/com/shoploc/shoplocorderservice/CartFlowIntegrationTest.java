@@ -119,4 +119,36 @@ class CartFlowIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].status").value("PANIER"));
     }
+
+    @Test
+    @DisplayName("Le client supprime sa commande : elle disparaît de sa liste, le commerçant la voit ANNULEE")
+    void clientCancelsOrderMerchantSeesItCancelled() throws Exception {
+        addToCart(1, 2).andExpect(status().isOk());   // Pain, merchant-1
+        addToCart(3, 1).andExpect(status().isOk());   // Fromage, merchant-2
+        asClient(post("/api/order/cart/validate")).andExpect(status().isOk());
+        int orderId = (int) (long) orderRepository.findAll().get(0).getId();
+
+        // le commerçant voit la commande avec le client, et dans le détail seulement son article
+        mockMvc.perform(get("/api/order/merchant/orders").header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].orderId").value(orderId))
+                .andExpect(jsonPath("$[0].clientId").value("client-1"))
+                .andExpect(jsonPath("$[0].itemCount").value(2))
+                .andExpect(jsonPath("$[0].totalAmount").value(7.0));
+        mockMvc.perform(get("/api/order/merchant/orders/" + orderId).header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].productName").value("Pain de campagne"));
+
+        asClient(delete("/api/order/" + orderId)).andExpect(status().isNoContent());
+
+        // côté client : la commande n'est plus listée ; une seconde suppression donne 404
+        asClient(get("/api/order")).andExpect(jsonPath("$.length()").value(0));
+        asClient(delete("/api/order/" + orderId)).andExpect(status().isNotFound());
+
+        // en base : la commande est toujours là, annulée ; le commerçant la voit ANNULEE
+        assertEquals(OrderStatus.ANNULEE, orderRepository.findAll().get(0).getStatus());
+        mockMvc.perform(get("/api/order/merchant/orders").header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(jsonPath("$[0].status").value("ANNULEE"));
+    }
 }

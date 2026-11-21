@@ -1,13 +1,16 @@
 package com.shoploc.shoplocorderservice.controller;
 
 import com.shoploc.shoplocorderservice.dto.CreateOrderRequest;
+import com.shoploc.shoplocorderservice.dto.MerchantOrderDetailResponse;
 import com.shoploc.shoplocorderservice.dto.MerchantOrderItemResponse;
+import com.shoploc.shoplocorderservice.dto.MerchantOrderSummaryResponse;
 import com.shoploc.shoplocorderservice.dto.OrderResponse;
 import com.shoploc.shoplocorderservice.entity.OrderStatus;
 import com.shoploc.shoplocorderservice.exception.CatalogUnavailableException;
 import com.shoploc.shoplocorderservice.exception.ForbiddenException;
 import com.shoploc.shoplocorderservice.exception.GlobalExceptionHandler;
 import com.shoploc.shoplocorderservice.exception.InsufficientStockException;
+import com.shoploc.shoplocorderservice.exception.OrderNotCancellableException;
 import com.shoploc.shoplocorderservice.exception.OrderNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductNotFoundException;
 import com.shoploc.shoplocorderservice.exception.ProductUnavailableException;
@@ -28,9 +31,12 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -205,5 +211,77 @@ class OrderControllerTest {
                         .header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].productName").value("Pain"));
+    }
+
+    // ---------- DELETE /api/order/{id} (suppression par le client) ----------
+
+    @Test
+    @DisplayName("DELETE /api/order/{id} : 204")
+    void cancelMyOrderReturns204() throws Exception {
+        mockMvc.perform(delete("/api/order/7").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isNoContent());
+
+        verify(orderService).cancelMyOrder(CLIENT, 7L);
+    }
+
+    @Test
+    @DisplayName("DELETE /api/order/{id} d'une commande déjà prête : 409")
+    void cancelMyOrderNotCancellableReturns409() throws Exception {
+        doThrow(new OrderNotCancellableException(7L, OrderStatus.PRETE)).when(orderService).cancelMyOrder(CLIENT, 7L);
+
+        mockMvc.perform(delete("/api/order/7").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/order/{id} d'une commande d'un autre client : 404")
+    void cancelMyOrderOfAnotherClientReturns404() throws Exception {
+        doThrow(new OrderNotFoundException(8L)).when(orderService).cancelMyOrder(CLIENT, 8L);
+
+        mockMvc.perform(delete("/api/order/8").header("X-User-Id", "client-1").header("X-User-Role", "CLIENT"))
+                .andExpect(status().isNotFound());
+    }
+
+    // ---------- GET /api/order/merchant/orders ----------
+
+    @Test
+    @DisplayName("GET /api/order/merchant/orders : 200")
+    void listMerchantOrdersReturns200() throws Exception {
+        CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
+        when(orderService.listMerchantOrders(merchant)).thenReturn(List.of(
+                new MerchantOrderSummaryResponse(7L, Instant.now(), OrderStatus.ANNULEE, "client-1", 2,
+                        new BigDecimal("7.00"))));
+
+        mockMvc.perform(get("/api/order/merchant/orders")
+                        .header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].orderId").value(7))
+                .andExpect(jsonPath("$[0].clientId").value("client-1"))
+                .andExpect(jsonPath("$[0].status").value("ANNULEE"));
+    }
+
+    @Test
+    @DisplayName("GET /api/order/merchant/orders/{id} : 200")
+    void getMerchantOrderReturns200() throws Exception {
+        CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
+        when(orderService.getMerchantOrder(merchant, 7L)).thenReturn(new MerchantOrderDetailResponse(
+                7L, Instant.now(), OrderStatus.EN_ATTENTE, "client-1", List.of(), new BigDecimal("7.00")));
+
+        mockMvc.perform(get("/api/order/merchant/orders/7")
+                        .header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(7))
+                .andExpect(jsonPath("$.totalAmount").value(7.00));
+    }
+
+    @Test
+    @DisplayName("GET /api/order/merchant/orders/{id} sans article du commerçant : 404")
+    void getMerchantOrderWithoutOwnItemsReturns404() throws Exception {
+        CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
+        when(orderService.getMerchantOrder(merchant, 8L)).thenThrow(new OrderNotFoundException(8L));
+
+        mockMvc.perform(get("/api/order/merchant/orders/8")
+                        .header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(status().isNotFound());
     }
 }

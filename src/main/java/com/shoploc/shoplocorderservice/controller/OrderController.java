@@ -1,12 +1,15 @@
 package com.shoploc.shoplocorderservice.controller;
 
 import com.shoploc.shoplocorderservice.dto.CreateOrderRequest;
+import com.shoploc.shoplocorderservice.dto.MerchantOrderDetailResponse;
 import com.shoploc.shoplocorderservice.dto.MerchantOrderItemResponse;
+import com.shoploc.shoplocorderservice.dto.MerchantOrderSummaryResponse;
 import com.shoploc.shoplocorderservice.dto.OrderResponse;
 import com.shoploc.shoplocorderservice.security.CurrentUser;
 import com.shoploc.shoplocorderservice.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,6 +53,25 @@ public class OrderController {
     }
 
     /** US3 : lignes de commande contenant mes articles (rôle COMMERCANT). */
+    /** Le client supprime une commande de sa liste : elle est annulée (rôle CLIENT). */
+    @DeleteMapping("/{orderId}")
+    public ResponseEntity<Void> cancelMyOrder(CurrentUser user, @PathVariable Long orderId) {
+        orderService.cancelMyOrder(user, orderId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** US3 : commandes contenant mes articles, une ligne par commande (rôle COMMERCANT). */
+    @GetMapping("/merchant/orders")
+    public List<MerchantOrderSummaryResponse> listMerchantOrders(CurrentUser user) {
+        return orderService.listMerchantOrders(user);
+    }
+
+    /** US3 : contenu d'une commande, limité à mes articles (rôle COMMERCANT). */
+    @GetMapping("/merchant/orders/{orderId}")
+    public MerchantOrderDetailResponse getMerchantOrder(CurrentUser user, @PathVariable Long orderId) {
+        return orderService.getMerchantOrder(user, orderId);
+    }
+
     @GetMapping("/merchant/items")
     public List<MerchantOrderItemResponse> listMerchantOrderItems(CurrentUser user) {
         return orderService.listMerchantOrderItems(user);
