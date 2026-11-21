@@ -81,6 +81,9 @@ L'authentification et la gestion des identités restent de la responsabilité de
 | Un client commande directement (sans panier) | `POST /api/order` | `CLIENT` |
 | Un client consulte la liste de ses commandes | `GET /api/order` | `CLIENT` |
 | Un client consulte le détail d'une de ses commandes | `GET /api/order/{orderId}` | `CLIENT` |
+| Un client supprime une commande de sa liste (elle est annulée) | `DELETE /api/order/{orderId}` | `CLIENT` |
+| Un commerçant consulte la liste des commandes contenant ses articles | `GET /api/order/merchant/orders` | `COMMERCANT` |
+| Un commerçant consulte le contenu d'une commande (ses articles) | `GET /api/order/merchant/orders/{orderId}` | `COMMERCANT` |
 | Un commerçant consulte les lignes de commande contenant ses articles | `GET /api/order/merchant/items` | `COMMERCANT` |
 
 Règles métier :
@@ -93,7 +96,9 @@ Règles métier :
 - Une nouvelle commande a le statut `EN_ATTENTE`.
 - Le créneau de retrait (`pickupSlot`) est facultatif ; s'il est donné, il doit être dans le futur.
 - Un client ne voit que ses propres commandes. La commande d'un autre client renvoie `404`.
-- Un commerçant ne voit que les lignes de commande de ses propres articles.
+- Un commerçant ne voit que les lignes de commande de ses propres articles. Une commande sans aucun de ses articles renvoie `404`.
+- Le client peut supprimer une commande tant qu'elle est `EN_ATTENTE` (sinon `409`). Elle n'est pas effacée : elle passe au statut `ANNULEE`, disparaît de la liste du client et reste visible par le commerçant avec ce statut.
+- Limite connue : l'annulation ne remet pas encore le stock dans le catalogue (il faudra un endpoint d'incrément côté catalogue).
 
 ## API
 
@@ -149,6 +154,28 @@ POST /api/order/cart/validate       {"pickupSlot": "2026-12-01T10:30:00"}  (corp
                                                                       -> la commande EN_ATTENTE
 ```
 
+### Supprimer une commande (client)
+
+```http
+DELETE /api/order/12        -> 204 (la commande passe ANNULEE)
+```
+
+### Vue commerçant
+
+```http
+GET /api/order/merchant/orders       -> une ligne par commande contenant mes articles
+GET /api/order/merchant/orders/12    -> le contenu de la commande, limité à mes articles
+```
+
+```json
+[
+  { "orderId": 12, "orderDate": "2026-11-21T09:15:00Z", "status": "EN_ATTENTE",
+    "clientId": "client-1", "itemCount": 3, "totalAmount": 10.60 }
+]
+```
+
+`itemCount` et `totalAmount` ne comptent que les articles du commerçant connecté. Les commandes annulées restent dans la liste, avec le statut `ANNULEE`.
+
 ### Codes d'erreur
 
 Les erreurs suivent le format standard Problem Details (RFC 9457).
@@ -159,7 +186,7 @@ Les erreurs suivent le format standard Problem Details (RFC 9457).
 | `401` | En-tête `X-User-Id` ou `X-User-Role` absent |
 | `403` | Rôle incorrect ou inconnu (par exemple un commerçant qui passe une commande) |
 | `404` | Commande introuvable ou appartenant à un autre client ; article absent du panier |
-| `409` | Stock insuffisant |
+| `409` | Stock insuffisant ; suppression d'une commande qui n'est plus `EN_ATTENTE` |
 | `503` | Service catalogue indisponible |
 | `422` | Article inconnu ou inactif |
 
