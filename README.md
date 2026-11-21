@@ -75,7 +75,10 @@ L'authentification et la gestion des identités restent de la responsabilité de
 
 | User story | Endpoint | Rôle |
 |---|---|---|
-| Un client commande un ou plusieurs articles avec leur quantité | `POST /api/order` | `CLIENT` |
+| Un client ajoute des articles à son panier depuis le catalogue | `POST /api/order/cart/items` | `CLIENT` |
+| Un client consulte, modifie et vide son panier | `GET /api/order/cart`, `PUT` / `DELETE /api/order/cart/items/{productId}` | `CLIENT` |
+| Un client valide son panier : il devient une commande | `POST /api/order/cart/validate` | `CLIENT` |
+| Un client commande directement (sans panier) | `POST /api/order` | `CLIENT` |
 | Un client consulte la liste de ses commandes | `GET /api/order` | `CLIENT` |
 | Un client consulte le détail d'une de ses commandes | `GET /api/order/{orderId}` | `CLIENT` |
 | Un commerçant consulte les lignes de commande contenant ses articles | `GET /api/order/merchant/items` | `COMMERCANT` |
@@ -85,6 +88,8 @@ Règles métier :
 - Chaque article doit exister, être actif et avoir un stock suffisant.
 - Le stock est décrémenté à la validation de la commande.
 - Le nom, le prix unitaire et le commerçant de l'article sont copiés dans la ligne de commande : le prix reste figé.
+- Le panier est une commande au statut `PANIER` (au plus une par client). Il n'est pas visible par les commerçants et ne réserve pas de stock.
+- Valider le panier relit chaque article dans le catalogue (existant, actif, stock suffisant), fige les prix, décrémente le stock et passe la commande en `EN_ATTENTE`.
 - Une nouvelle commande a le statut `EN_ATTENTE`.
 - Le créneau de retrait (`pickupSlot`) est facultatif ; s'il est donné, il doit être dans le futur.
 - Un client ne voit que ses propres commandes. La commande d'un autre client renvoie `404`.
@@ -133,16 +138,27 @@ Réponse `201 Created`, avec l'en-tête `Location: /api/order/{id}` :
 
 Si le même article apparaît plusieurs fois dans la requête, les quantités sont additionnées.
 
+### Panier
+
+```http
+POST /api/order/cart/items          {"productId": 1, "quantity": 2}   -> le panier mis à jour
+PUT  /api/order/cart/items/1        {"quantity": 3}                   -> le panier mis à jour
+DELETE /api/order/cart/items/1                                        -> le panier mis à jour (supprimé s'il devient vide)
+GET  /api/order/cart                                                  -> le panier (vide s'il n'existe pas)
+POST /api/order/cart/validate       {"pickupSlot": "2026-12-01T10:30:00"}  (corps facultatif)
+                                                                      -> la commande EN_ATTENTE
+```
+
 ### Codes d'erreur
 
 Les erreurs suivent le format standard Problem Details (RFC 9457).
 
 | Code | Cas |
 |---|---|
-| `400` | Corps invalide : `items` vide, `productId` manquant, `quantity` ≤ 0, `pickupSlot` dans le passé |
+| `400` | Corps invalide : `items` vide, `productId` manquant, `quantity` ≤ 0, `pickupSlot` dans le passé ; validation d'un panier vide |
 | `401` | En-tête `X-User-Id` ou `X-User-Role` absent |
 | `403` | Rôle incorrect ou inconnu (par exemple un commerçant qui passe une commande) |
-| `404` | Commande introuvable, ou appartenant à un autre client |
+| `404` | Commande introuvable ou appartenant à un autre client ; article absent du panier |
 | `409` | Stock insuffisant |
 | `503` | Service catalogue indisponible |
 | `422` | Article inconnu ou inactif |

@@ -205,6 +205,19 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("Vue commerçant : les paniers (pas encore commandés) ne sont pas visibles")
+    void listMerchantOrderItemsHidesCarts() {
+        Order cart = new Order();
+        cart.setClientId("client-1");
+        cart.setStatus(OrderStatus.PANIER);
+        OrderItem item = new OrderItem(1L, "Pain", "merchant-1", 2, new BigDecimal("3.50"));
+        cart.addItem(item);
+        when(orderItemRepository.findByMerchantId("merchant-1")).thenReturn(List.of(item));
+
+        assertEquals(0, orderService.listMerchantOrderItems(MERCHANT).size());
+    }
+
+    @Test
     @DisplayName("Vue commerçant demandée par un client : interdit")
     void listMerchantOrderItemsByClientIsForbidden() {
         assertThrows(ForbiddenException.class, () -> orderService.listMerchantOrderItems(CLIENT));

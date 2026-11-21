@@ -105,6 +105,8 @@ public class OrderService {
     public List<MerchantOrderItemResponse> listMerchantOrderItems(CurrentUser user) {
         user.requireRole(Role.COMMERCANT);
         return orderItemRepository.findByMerchantId(user.id()).stream()
+                // un panier n'est pas encore commandé : le commerçant ne le voit pas
+                .filter(item -> item.getOrder().getStatus() != OrderStatus.PANIER)
                 .map(MerchantOrderItemResponse::from)
                 // les commandes les plus récentes d'abord
                 .sorted(Comparator.comparing(MerchantOrderItemResponse::orderId).reversed())

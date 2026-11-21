@@ -23,8 +23,13 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
-    @ExceptionHandler(OrderNotFoundException.class)
-    public ProblemDetail handleOrderNotFound(OrderNotFoundException ex) {
+    @ExceptionHandler(EmptyCartException.class)
+    public ProblemDetail handleEmptyCart(EmptyCartException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler({OrderNotFoundException.class, CartItemNotFoundException.class})
+    public ProblemDetail handleOrderNotFound(RuntimeException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
