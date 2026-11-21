@@ -7,4 +7,9 @@ public class InsufficientStockException extends RuntimeException {
         super("Insufficient stock for product " + productId
                 + ": requested " + requested + ", available " + available);
     }
+
+    /** Stock insuffisant signalé par le service catalogue (message renvoyé tel quel). */
+    public InsufficientStockException(String message) {
+        super(message);
+    }
 }

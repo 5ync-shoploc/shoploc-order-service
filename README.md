@@ -144,6 +144,7 @@ Les erreurs suivent le format standard Problem Details (RFC 9457).
 | `403` | Rôle incorrect ou inconnu (par exemple un commerçant qui passe une commande) |
 | `404` | Commande introuvable, ou appartenant à un autre client |
 | `409` | Stock insuffisant |
+| `503` | Service catalogue indisponible |
 | `422` | Article inconnu ou inactif |
 
 ## Modèle de données (schéma `orders`)
@@ -175,31 +176,26 @@ Conforme au MLD commun : base `shoploc-db`, un schéma par service. L'order-serv
 
 Les références vers les autres services ne sont pas des clés étrangères SQL : la cohérence est assurée par les API (et plus tard par les événements Kafka).
 
-## Dépendances simulées (temporaire)
+## Dépendances externes
 
-Le service est développé et testé indépendamment des autres services. Ses deux dépendances externes sont isolées derrière une interface, avec une implémentation simulée. Les remplacer ne changera ni le controller ni le service.
+### Catalogue
 
-| Dépendance | Implémentation actuelle | Cible |
-|---|---|---|
-| Identité (Keycloak) | `CurrentUserArgumentResolver` : lit les en-têtes `X-User-Id` et `X-User-Role` | Lire l'utilisateur et son rôle dans le token JWT Keycloak |
-| Catalogue | `InMemoryProductCatalogClient` : produits de démonstration en mémoire | Appels HTTP vers `shoploc-catalog-service` |
+Le service lit les produits et décrémente le stock en appelant le service catalogue (`HttpProductCatalogClient`), à l'adresse `CATALOG_URL` (par défaut `http://localhost:8081`). Le catalogue doit donc être démarré pour passer une commande.
+
+Endpoints internes du catalogue utilisés (appelés directement, sans passer par la Gateway) :
+
+| Appel | Réponses |
+|---|---|
+| `GET /api/products/{id}/internal` | `200` `{id, name, price, active, stock, merchantId}` · `404` produit inconnu |
+| `POST /api/products/stock/decrement` `{"items":[{"productId","quantity"}]}` | `204` · `409` stock insuffisant · `404` produit inconnu (tout ou rien) |
+
+Si le catalogue ne répond pas, la commande est refusée avec `503`.
+
+### Identité (Keycloak) — simulée pour l'instant
+
+`CurrentUserArgumentResolver` lit les en-têtes `X-User-Id` et `X-User-Role`. Il sera remplacé par la lecture du token JWT Keycloak.
 
 > ⚠️ L'identité par en-têtes sert uniquement au développement : n'importe qui peut envoyer un faux en-tête. Elle doit être remplacée par la vérification du token JWT avant toute mise en production.
-
-Produits de démonstration (le stock est réinitialisé à chaque redémarrage du service) :
-
-| id | Produit | Prix | Actif | Stock | Commerçant |
-|---|---|---|---|---|---|
-| 1 | Pain de campagne | 3.50 | oui | 100 | merchant-1 |
-| 2 | Croissant | 1.20 | oui | 5 | merchant-1 |
-| 3 | Fromage de chèvre | 6.80 | oui | 20 | merchant-2 |
-| 4 | Confiture | 4.00 | **non** | 50 | merchant-2 |
-
-Ce dont le service a besoin du catalogue pour remplacer la simulation :
-
-- pour chaque produit : `id`, `name`, `price`, `active`, `stock`, `merchantId` ;
-- un endpoint pour lire un produit ;
-- un endpoint qui décrémente le stock de plusieurs produits de façon atomique (tout ou rien) et refuse l'appel si un stock est insuffisant.
 
 ## Configuration
 
@@ -207,22 +203,24 @@ La configuration est centralisée dans `shoploc-config-server` (`configurations/
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
-| `DB_URL` | `jdbc:postgresql://localhost:5432/shoploc_order_dev` | URL PostgreSQL |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/shoploc-db` | URL PostgreSQL |
 | `DB_USERNAME` | `postgres` | Utilisateur PostgreSQL |
 | `DB_PASSWORD` | *(vide)* | Mot de passe PostgreSQL |
+| `CATALOG_URL` | `http://localhost:8081` | adresse du service catalogue |
 | `SPRING_PROFILES_ACTIVE` | — | `local` pour utiliser `application-local.yaml` (non versionné) |
 
 Le service écoute sur le port `8082`.
 
 ## Lancer en local
 
-Prérequis : Java 21 ou plus, Docker (pour les tests), un PostgreSQL local avec la base `shoploc_order_dev`, et le fichier `~/.m2/settings.xml` pour GitHub Packages.
+Prérequis : Java 21 ou plus, Docker (pour les tests), un PostgreSQL local avec la base `shoploc-db`, et le fichier `~/.m2/settings.xml` pour GitHub Packages.
 
 Démarrer les applications dans cet ordre :
 
 1. `shoploc-config-server` (port 8888)
-2. `shoploc-order-service` (port 8082), par exemple avec `SPRING_PROFILES_ACTIVE=local;DB_USERNAME=<ton_utilisateur>`
-3. `shoploc-api-gateway` (port 8080)
+2. `shoploc-catalog-service` (port 8081), avec des produits en base
+3. `shoploc-order-service` (port 8082), par exemple avec `SPRING_PROFILES_ACTIVE=local;DB_USERNAME=<ton_utilisateur>`
+4. `shoploc-api-gateway` (port 8080)
 
 Vérifier :
 
@@ -238,10 +236,13 @@ curl http://localhost:8080/actuator/health   # "status":"UP"
 ```
 
 - Tests unitaires : service (Mockito) et controller (MockMvc en mode standalone).
-- Tests de bout en bout (`OrderFlowIntegrationTest`) : HTTP → controller → service → vrai PostgreSQL, lancé par Testcontainers. Docker doit être démarré.
+- Client du catalogue (`HttpProductCatalogClientTest`) : appels HTTP vérifiés avec un faux serveur (`MockRestServiceServer`).
+- Tests de bout en bout (`OrderFlowIntegrationTest`) : HTTP → controller → service → vrai PostgreSQL, lancé par Testcontainers. Docker doit être démarré. Le catalogue y est remplacé par un faux catalogue en mémoire (`FakeProductCatalogClient`, uniquement dans `src/test`), pour que les tests ne dépendent pas d'un autre service.
 - Le build échoue si la couverture de lignes est inférieure à 80 % (JaCoCo, configuré dans `shoploc-parent`).
 
 ### Scénario manuel de bout en bout via la Gateway
+
+Avec les produits de test du catalogue (dans l'ordre d'insertion : 1 pain, 2 croissant (stock 5), 3 fromage, 4 confiture inactive ; vérifier les id dans `catalog.produit`).
 
 ```bash
 GW=http://localhost:8080

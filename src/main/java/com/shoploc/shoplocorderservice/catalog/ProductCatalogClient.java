@@ -4,9 +4,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Accès au service catalogue.
- * Aujourd'hui : InMemoryProductCatalogClient (simulé).
- * Plus tard : une implémentation HTTP vers shoploc-catalog-service, avec le même contrat.
+ * Accès au service catalogue (implémentation : HttpProductCatalogClient).
+ * L'interface permet aux tests de le remplacer par un faux catalogue.
  */
 public interface ProductCatalogClient {
 

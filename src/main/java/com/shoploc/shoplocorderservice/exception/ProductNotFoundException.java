@@ -6,4 +6,9 @@ public class ProductNotFoundException extends RuntimeException {
     public ProductNotFoundException(Long productId) {
         super("Product " + productId + " does not exist");
     }
+
+    /** Produit inconnu signalé par le service catalogue (message renvoyé tel quel). */
+    public ProductNotFoundException(String message) {
+        super(message);
+    }
 }
