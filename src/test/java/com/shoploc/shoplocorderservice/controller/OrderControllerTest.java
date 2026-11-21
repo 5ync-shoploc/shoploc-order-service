@@ -4,6 +4,7 @@ import com.shoploc.shoplocorderservice.dto.CreateOrderRequest;
 import com.shoploc.shoplocorderservice.dto.MerchantOrderItemResponse;
 import com.shoploc.shoplocorderservice.dto.OrderResponse;
 import com.shoploc.shoplocorderservice.entity.OrderStatus;
+import com.shoploc.shoplocorderservice.exception.CatalogUnavailableException;
 import com.shoploc.shoplocorderservice.exception.ForbiddenException;
 import com.shoploc.shoplocorderservice.exception.GlobalExceptionHandler;
 import com.shoploc.shoplocorderservice.exception.InsufficientStockException;
@@ -145,6 +146,13 @@ class OrderControllerTest {
     void createOrderWithInactiveProductReturns422() throws Exception {
         when(orderService.createOrder(any(), any())).thenThrow(new ProductUnavailableException(4L));
         postOrder("client-1", "CLIENT", VALID_BODY).andExpect(status().is(422));
+    }
+
+    @Test
+    @DisplayName("POST quand le catalogue est indisponible : 503")
+    void createOrderWhenCatalogUnavailableReturns503() throws Exception {
+        when(orderService.createOrder(any(), any())).thenThrow(new CatalogUnavailableException("Catalog service unavailable", null));
+        postOrder("client-1", "CLIENT", VALID_BODY).andExpect(status().isServiceUnavailable());
     }
 
     @Test

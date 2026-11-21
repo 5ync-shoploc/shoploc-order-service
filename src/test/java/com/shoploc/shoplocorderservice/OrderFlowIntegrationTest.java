@@ -1,7 +1,8 @@
 package com.shoploc.shoplocorderservice;
 
 import com.jayway.jsonpath.JsonPath;
-import com.shoploc.shoplocorderservice.catalog.InMemoryProductCatalogClient;
+import com.shoploc.shoplocorderservice.catalog.FakeCatalogConfiguration;
+import com.shoploc.shoplocorderservice.catalog.FakeProductCatalogClient;
 import com.shoploc.shoplocorderservice.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,11 +26,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Tests de bout en bout : HTTP -> controller -> service -> vrai PostgreSQL (Testcontainers).
- * Le catalogue et l'identité sont simulés (InMemoryProductCatalogClient, en-têtes X-User-Id / X-User-Role).
+ * Le catalogue est remplacé par un faux catalogue en mémoire (FakeProductCatalogClient, uniquement dans les tests),
+ * et l'identité passe par les en-têtes X-User-Id / X-User-Role.
  * ddl-auto=create-drop : Hibernate crée les tables pour les tests
  * (en temps normal, c'est le Config Server qui fixe ce réglage).
  */
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, FakeCatalogConfiguration.class})
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class OrderFlowIntegrationTest {
 
@@ -40,7 +42,7 @@ class OrderFlowIntegrationTest {
     private OrderRepository orderRepository;
 
     @Autowired
-    private InMemoryProductCatalogClient catalog;
+    private FakeProductCatalogClient catalog;
 
     private MockMvc mockMvc;
 
