@@ -59,6 +59,7 @@ public class OrderService {
 
         Order order = new Order();
         order.setClientId(user.id());
+        order.setClientName(user.name());
         order.setStatus(OrderStatus.EN_ATTENTE);
         order.setPickupSlot(request.pickupSlot());
 
@@ -137,6 +138,7 @@ public class OrderService {
                             order.getOrderDate(),
                             order.getStatus(),
                             order.getClientId(),
+                            order.getClientName(),
                             items.stream().mapToInt(OrderItem::getQuantity).sum(),
                             total(items));
                 })
@@ -163,6 +165,7 @@ public class OrderService {
                 order.getOrderDate(),
                 order.getStatus(),
                 order.getClientId(),
+                order.getClientName(),
                 items.stream().map(OrderItemResponse::from).toList(),
                 total(items));
     }

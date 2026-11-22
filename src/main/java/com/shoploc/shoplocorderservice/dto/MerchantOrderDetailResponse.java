@@ -12,6 +12,7 @@ public record MerchantOrderDetailResponse(
         Instant orderDate,
         OrderStatus status,
         String clientId,
+        String clientName,
         List<OrderItemResponse> items,
         BigDecimal totalAmount
 ) {

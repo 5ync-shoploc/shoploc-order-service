@@ -16,6 +16,7 @@ public record MerchantOrderSummaryResponse(
         Instant orderDate,
         OrderStatus status,
         String clientId,
+        String clientName,
         Integer itemCount,
         BigDecimal totalAmount
 ) {

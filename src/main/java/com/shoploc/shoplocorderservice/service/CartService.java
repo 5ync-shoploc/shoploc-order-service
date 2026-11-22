@@ -133,6 +133,7 @@ public class CartService {
         cart.setStatus(OrderStatus.EN_ATTENTE);
         cart.setOrderDate(Instant.now());
         cart.setPickupSlot(request == null ? null : request.pickupSlot());
+        cart.setClientName(user.name());
         // écrit la commande en base avant d'appeler le catalogue : une erreur SQL arrive avant le décrément du stock
         orderRepository.flush();
 

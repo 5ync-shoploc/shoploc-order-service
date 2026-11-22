@@ -249,7 +249,7 @@ class OrderControllerTest {
     void listMerchantOrdersReturns200() throws Exception {
         CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
         when(orderService.listMerchantOrders(merchant)).thenReturn(List.of(
-                new MerchantOrderSummaryResponse(7L, Instant.now(), OrderStatus.ANNULEE, "client-1", 2,
+                new MerchantOrderSummaryResponse(7L, Instant.now(), OrderStatus.ANNULEE, "client-1", "Obed Dupont", 2,
                         new BigDecimal("7.00"))));
 
         mockMvc.perform(get("/api/order/merchant/orders")
@@ -257,6 +257,7 @@ class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].orderId").value(7))
                 .andExpect(jsonPath("$[0].clientId").value("client-1"))
+                .andExpect(jsonPath("$[0].clientName").value("Obed Dupont"))
                 .andExpect(jsonPath("$[0].status").value("ANNULEE"));
     }
 
@@ -265,7 +266,7 @@ class OrderControllerTest {
     void getMerchantOrderReturns200() throws Exception {
         CurrentUser merchant = new CurrentUser("merchant-1", Role.COMMERCANT);
         when(orderService.getMerchantOrder(merchant, 7L)).thenReturn(new MerchantOrderDetailResponse(
-                7L, Instant.now(), OrderStatus.EN_ATTENTE, "client-1", List.of(), new BigDecimal("7.00")));
+                7L, Instant.now(), OrderStatus.EN_ATTENTE, "client-1", "Obed Dupont", List.of(), new BigDecimal("7.00")));
 
         mockMvc.perform(get("/api/order/merchant/orders/7")
                         .header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
