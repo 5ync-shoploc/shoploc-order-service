@@ -203,7 +203,8 @@ Conforme au MLD commun : base `shoploc-db`, un schéma par service. L'order-serv
 | `statut` | `PANIER`, `EN_ATTENTE`, `VALIDEE`, `PRETE`, `RETIREE`, `ANNULEE` |
 | `montant_total` | total de la commande |
 | `creneau_retrait` | créneau de retrait choisi (facultatif) |
-| `id_client` | → `keycloak-db.utilisateur` (pas de clé étrangère SQL) |
+| `id_client` | identifiant Keycloak du client (pas de clé étrangère SQL) |
+| `nom_client` | nom du client au moment de la validation, figé comme sur un ticket (ajout par rapport au MLD, facultatif) |
 | `id_paiement` | → `payment.paiement`, vide tant que la commande n'est pas payée |
 
 **ligne_commande** — clé primaire (`id_commande`, `id_produit`)
@@ -236,7 +237,9 @@ Si le catalogue ne répond pas, la commande est refusée avec `503`.
 
 ### Identité (Keycloak) — simulée pour l'instant
 
-`CurrentUserArgumentResolver` lit les en-têtes `X-User-Id` et `X-User-Role`. Il sera remplacé par la lecture du token JWT Keycloak.
+`CurrentUserArgumentResolver` lit les en-têtes `X-User-Id`, `X-User-Role` et `X-User-Name` (facultatif, encodé comme une URL : `H%C3%A9l%C3%A8ne%20Dupr%C3%A9`). Le front les remplit à partir du token Keycloak ; à terme, c'est la Gateway qui les posera après avoir vérifié le token.
+
+À la validation du panier, le nom est enregistré dans la commande (`nom_client`) : le commerçant voit le nom du client au lieu de son identifiant. S'il est absent, la commande est quand même acceptée.
 
 > ⚠️ L'identité par en-têtes sert uniquement au développement : n'importe qui peut envoyer un faux en-tête. Elle doit être remplacée par la vérification du token JWT avant toute mise en production.
 

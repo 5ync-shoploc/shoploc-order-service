@@ -296,4 +296,16 @@ class CartServiceTest {
         verify(catalog, never()).decrementStock(anyMap());
         verify(orderRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Valider : le nom du client est enregistré dans la commande")
+    void validateStoresClientName() {
+        Order cart = cartWith(new OrderItem(1L, "Pain", "merchant-1", 1, new BigDecimal("3.50")));
+        existingCart(cart);
+        when(catalog.findProduct(1L)).thenReturn(Optional.of(BREAD));
+
+        cartService.validate(new CurrentUser("client-1", Role.CLIENT, "Obed Dupont"), null);
+
+        assertEquals("Obed Dupont", cart.getClientName());
+    }
 }

@@ -151,4 +151,17 @@ class CartFlowIntegrationTest {
         mockMvc.perform(get("/api/order/merchant/orders").header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
                 .andExpect(jsonPath("$[0].status").value("ANNULEE"));
     }
+
+    @Test
+    @DisplayName("Le nom du client (en-tête X-User-Name) est enregistré à la validation et visible par le commerçant")
+    void clientNameIsStoredAndShownToMerchant() throws Exception {
+        addToCart(1, 1).andExpect(status().isOk());
+        mockMvc.perform(post("/api/order/cart/validate")
+                        .header("X-User-Id", "client-1").header("X-User-Role", "CLIENT")
+                        .header("X-User-Name", "H%C3%A9l%C3%A8ne%20Dupr%C3%A9"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/order/merchant/orders").header("X-User-Id", "merchant-1").header("X-User-Role", "COMMERCANT"))
+                .andExpect(jsonPath("$[0].clientName").value("Hélène Dupré"));
+    }
 }

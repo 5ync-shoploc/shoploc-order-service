@@ -50,6 +50,10 @@ public class Order {
     @Column(name = "id_client", nullable = false)
     private String clientId;
 
+    /** Nom du client au moment de la commande, figé comme sur un ticket (absent pour les anciennes commandes). */
+    @Column(name = "nom_client", length = 200)
+    private String clientName;
+
     /** Référence vers payment.paiement : vide tant que la commande n'est pas payée. */
     @Column(name = "id_paiement")
     private Long paymentId;
@@ -101,6 +105,8 @@ public class Order {
 
     public String getClientId() { return clientId; }
     public void setClientId(String clientId) { this.clientId = clientId; }
+    public String getClientName() { return clientName; }
+    public void setClientName(String clientName) { this.clientName = clientName; }
 
     public Long getPaymentId() { return paymentId; }
     public void setPaymentId(Long paymentId) { this.paymentId = paymentId; }
