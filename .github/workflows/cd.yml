@@ -1,0 +1,18 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cd:
+    uses: 5ync-shoploc/shoploc-ci-cd/.github/workflows/docker-cd.yml@develop
+    with:
+      service: order-service
+    secrets:
+      GH_PACKAGES_TOKEN: ${{ secrets.GH_PACKAGES_TOKEN }}
